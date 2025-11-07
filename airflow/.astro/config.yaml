@@ -1,2 +1,8 @@
 project:
-    name: airflow
+  name: goodparty-voter-pipeline
+
+webserver:
+  port: 8080
+
+scheduler:
+  enabled: true

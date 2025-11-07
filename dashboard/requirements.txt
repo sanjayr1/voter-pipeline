@@ -1,0 +1,6 @@
+streamlit==1.51.0
+plotly==6.4.0
+duckdb==1.4.1
+pandas==2.3.3
+python-dotenv==1.2.1
+altair==5.5.0

@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+data/processed/
+dbt_voter_project/target/
+dbt_voter_project/dbt_packages/
