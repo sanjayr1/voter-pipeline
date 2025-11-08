@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: int_voters_cleaned
+    description: "Cleaned and standardized voter data with validated demographics."
+    columns:
+      - name: voter_id
+        description: "Primary voter identifier propagated from the raw feed."
+        tests:
+          - unique
+          - not_null
+      - name: age
+        description: "Validated age constrained to configured min/max bounds."
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 18
+              max_value: 120
+              config:
+                severity: warn
+                where: "age is not null"
+      - name: state_code
+        description: "Two-letter USPS state code derived from the raw value."
+        tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: is_valid_email
+        description: "Boolean flag indicating whether the email passes regex validation."
+        tests:
+          - not_null
+      - name: registered_date
+        description: "Standardized registration date."
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - not_future_date:
+              days_ahead: 30
+              config:
+                severity: warn
+    tests:
+      - dbt_utils.equal_rowcount:
+          compare_model: ref('stg_voters')

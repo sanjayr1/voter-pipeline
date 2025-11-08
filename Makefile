@@ -50,7 +50,7 @@ download-data:     # Download voter CSV
 
 run-pipeline:      # Trigger the DAG
 	@command -v astro >/dev/null 2>&1 || { echo "Astro CLI not installed. Run \"make install-astro\"."; exit 1; }
-	@cd $(ASTRO_PROJECT_DIR) && astro dev run $(DAG_ID)
+	@cd $(ASTRO_PROJECT_DIR) && astro dev run dags trigger $(DAG_ID)
 
 dashboard:         # Run Streamlit dashboard
 	@command -v streamlit >/dev/null 2>&1 || { echo "Streamlit not found. Install with \"pip install streamlit\"."; exit 1; }

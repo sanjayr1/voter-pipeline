@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: raw
+    database: null
+    schema: raw
+    tables:
+      - name: voters
+        description: "Raw voter registration data ingested from CSV via Airflow."
+        columns:
+          - name: id
+            description: "Voter ID from the source file."
+          - name: source_file_hash
+            description: "Hash of the ingested CSV to support incremental checks."
+
+models:
+  - name: stg_voters
+    description: "Staged voter data with whitespace cleanup and lightweight casting."
+    columns:
+      - name: voter_id
+        description: "Unique voter identifier."
+        tests:
+          - unique
+          - not_null
+      - name: age
+        description: "Voter age parsed as integer when possible."
+      - name: state_raw
+        description: "State value exactly as in the source file."
+      - name: party
+        description: "Political party affiliation."
+        tests:
+          - accepted_values:
+              values: ['Democrat', 'Republican', 'Independent']
+              config:
+                severity: warn

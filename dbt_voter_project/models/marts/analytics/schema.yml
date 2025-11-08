@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: voter_state_summary
+    description: "State-level voter demographic, turnout, and data-quality metrics."
+  - name: voter_party_distribution
+    description: "Party-level aggregation with demographics and turnout indicators."
+  - name: voter_engagement_metrics
+    description: "Voter engagement patterns and participation analysis."
+    columns:
+      - name: engagement_score
+        description: "0-100 score based on voting recency."
+  - name: demographic_crosstab
+    description: "Cross-tabulation of voter demographics for diversity analysis."
+  - name: registration_trends
+    description: "Monthly registration trends with party breakdown."
+    tests:
+      - dbt_utils.recency:
+          datepart: month
+          field: registration_month
+          interval: 1

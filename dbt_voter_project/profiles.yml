@@ -1,9 +1,9 @@
-voter_duckdb:
+voter_analytics:
   target: dev
   outputs:
     dev:
       type: duckdb
       path: ../data/processed/goodparty.duckdb
-      extensions: []
       schema: main
       threads: 4
+      extensions: []

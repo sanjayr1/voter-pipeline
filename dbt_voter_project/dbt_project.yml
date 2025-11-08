@@ -1,12 +1,30 @@
-name: dbt_voter_project
+name: voter_analytics
 version: 1.0.0
 config-version: 2
-profile: voter_duckdb
+profile: voter_analytics
+
 model-paths: ["models"]
 analysis-paths: ["analyses"]
+macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 models:
-  dbt_voter_project:
-    +materialized: view
+  voter_analytics:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+
+tests:
+  voter_analytics:
+    +severity: warn
+
+vars:
+  min_voter_age: 18
+  max_voter_age: 120
