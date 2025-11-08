@@ -6,3 +6,11 @@ __pycache__/
 data/processed/
 dbt_voter_project/target/
 dbt_voter_project/dbt_packages/
+dbt_voter_project/logs/
+dbt_voter_project/.user.yml
+
+# Astro runtime mirrors (source lives outside airflow/include)
+airflow/include/data/*
+!airflow/include/data/.gitkeep
+airflow/include/dbt_voter_project/*
+!airflow/include/dbt_voter_project/.gitkeep
