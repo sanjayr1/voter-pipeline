@@ -4,7 +4,7 @@ ASTRO_PROJECT_DIR := airflow
 RAW_DATA_DIR := data/raw
 PROCESSED_DATA_DIR := data/processed
 RAW_DATA_FILE := $(RAW_DATA_DIR)/goodparty_voters.csv
-DAG_ID ?= goodparty_voter_pipeline
+DAG_ID ?= voter_ingestion_dag
 STREAMLIT_APP := dashboard/app.py
 DATA_URL ?= https://gist.githubusercontent.com/hhkarimi/03b7d159478b319679e308e252f58d44/raw
 
