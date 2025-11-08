@@ -49,7 +49,7 @@ make run-pipeline
 
 # 6. Explore the Streamlit dashboard in another terminal
 source .venv/bin/activate
-make dashboard    # Dashboard: http://localhost:8501
+make dashboard        # wraps ./dashboard/run.sh (http://localhost:8501)
 ```
 
 Stop Airflow any time with `make astro-stop`. Run `make demo` to execute the full flow (start Airflow, refresh data, trigger DAG) in one go.
@@ -60,6 +60,9 @@ Run `make help` to list all commands. Highlights:
 - `make check-prereqs` – verifies Docker + Astro availability.
 - `make download-data` – pulls the latest voter CSV (https://gist.github.com/hhkarimi/...).
 - `make run-pipeline` – runs the configured DAG via `astro dev run`.
+- `make dashboard` – launches Streamlit via `dashboard/run.sh` (auto handles deps/locks).
+- `make dashboard-build` – installs `dashboard/requirements.txt` into the active env.
+- `make dashboard-dev` – runs Streamlit with auto-reload for rapid iteration.
 - `make demo` – orchestrates startup, data download, and DAG trigger for interview demos.
 - `make clean` – removes generated data, DuckDB files, and Astro logs.
 
@@ -182,6 +185,58 @@ duckdb airflow/include/data/processed/goodparty.duckdb "
 "
 ```
 Combine these checks with `dbt test` to confirm data-quality logic before demoing or iterating on downstream layers.
+
+---
+
+## 📊 Streamlit Dashboard
+
+Launch the visualization layer once the dbt marts have data. The helper `make dashboard` target calls `dashboard/run.sh`, which handles dependency installation, DuckDB path detection, and read-only snapshotting if another process (e.g., the DuckDB CLI) locks the file.
+
+```bash
+# from repo root
+source .venv/bin/activate               # reuse the virtualenv from make setup
+make dashboard                          # opens http://localhost:8501
+```
+
+Want to run the script manually? `./dashboard/run.sh` exposes the same functionality. Its behavior:
+- Prefers the repo’s `airflow/include/data/processed/goodparty.duckdb`. Override by exporting `DUCKDB_PATH=/path/to/warehouse.duckdb` before running.
+- Automatically installs `dashboard/requirements.txt` into the active environment if packages are missing.
+- Falls back to a temporary snapshot when the primary DuckDB file is locked, so you can keep a CLI session open without killing Streamlit.
+- Exposes an optional `DBT_MART_SCHEMA` env var (defaults to `main_marts`) if you want to point at a different mart schema.
+
+Prefer a manual launch? `streamlit run dashboard/app.py` works too—just be sure `DUCKDB_PATH` points at the warehouse.
+
+### What reviewers should look for
+- **Overview tab** – Total voter counts, party split, and engagement cohorts from `main_marts.voter_engagement_metrics`.
+- **Geographic tab** – Top states + party distribution charts powered by `main_marts.voter_state_summary`.
+- **Demographics tab** – Generation/gender/party cross-tabs sourced entirely from `main_marts.demographic_crosstab`.
+- **Trends tab** – Moving averages, cumulative growth, and party-specific registration trajectories from `main_marts.registration_trends`.
+- **Data Quality tab** – Metric cards + gauge fed by `main_marts.dq_summary`. All deltas/percentages map back to the SQL logic in that mart.
+
+### SQL snippets for data-quality investigations
+Run these against the DuckDB file (e.g., `duckdb airflow/include/data/processed/goodparty.duckdb`) to see the exact records behind the dashboard metrics:
+
+```sql
+-- Rows with missing critical fields
+select voter_id, first_name, last_name, state_code, age, email, load_timestamp
+from main_intermediate.int_voters_cleaned
+where has_missing_data
+order by voter_id;
+
+-- Invalid ages (outside {{ var('min_voter_age') }}-{{ var('max_voter_age') }})
+select voter_id, age, first_name, last_name, state_code, has_invalid_age
+from main_intermediate.int_voters_cleaned
+where has_invalid_age
+order by voter_id;
+
+-- Invalid emails caught by validate_email()
+select voter_id, email, first_name, last_name, state_code
+from main_intermediate.int_voters_cleaned
+where not is_valid_email
+order by voter_id;
+```
+
+Use the same connection to spot-check mart outputs that feed each Streamlit page, ensuring reviewers can tie every visualization back to its SQL source.
 
 ---
 

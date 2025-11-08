@@ -8,7 +8,7 @@ DAG_ID ?= voter_ingestion_dag
 STREAMLIT_APP := dashboard/app.py
 DATA_URL ?= https://gist.githubusercontent.com/hhkarimi/03b7d159478b319679e308e252f58d44/raw
 
-.PHONY: help check-prereqs install-astro setup astro-init astro-start astro-stop download-data run-pipeline dashboard demo clean
+.PHONY: help check-prereqs install-astro setup astro-init astro-start astro-stop download-data run-pipeline dashboard dashboard-build dashboard-dev demo clean
 
 help:              # Show all commands
 	@echo "Available commands:"
@@ -52,9 +52,15 @@ run-pipeline:      # Trigger the DAG
 	@command -v astro >/dev/null 2>&1 || { echo "Astro CLI not installed. Run \"make install-astro\"."; exit 1; }
 	@cd $(ASTRO_PROJECT_DIR) && astro dev run dags trigger $(DAG_ID)
 
-dashboard:         # Run Streamlit dashboard
-	@command -v streamlit >/dev/null 2>&1 || { echo "Streamlit not found. Install with \"pip install streamlit\"."; exit 1; }
-	@streamlit run $(STREAMLIT_APP)
+dashboard:         # Run Streamlit dashboard via helper script
+	@echo "Starting Voter Analytics Dashboard..."
+	@./dashboard/run.sh
+
+dashboard-build:   # Install dashboard dependencies into current environment
+	@python -m pip install -r dashboard/requirements.txt
+
+dashboard-dev:     # Run dashboard with Streamlit's dev mode (auto-reload)
+	@cd dashboard && streamlit run app.py --server.runOnSave=true
 
 demo:              # Full demo flow
 	@$(MAKE) check-prereqs
