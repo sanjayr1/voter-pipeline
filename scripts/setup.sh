@@ -193,7 +193,7 @@ main() {
   init_astro_project
   setup_dbt_project
   install_local_dependencies
-  log "Setup complete! Activate the virtualenv with 'source .venv/bin/activate' before running local commands. You are ready to run 'make astro-start' or 'make demo'."
+  log "Setup complete! Activate the virtualenv with 'source .venv/bin/activate', run 'make copy-data', then 'make astro-start' when you're ready to use Airflow."
 }
 
 main "$@"

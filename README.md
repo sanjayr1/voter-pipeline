@@ -66,7 +66,7 @@ source .venv/bin/activate
 make dashboard        # wraps ./dashboard/run.sh (http://localhost:8501)
 ```
 
-Stop Airflow any time with `make astro-stop`. Run `make demo` to execute the full flow (start Airflow, refresh data, trigger DAG) in one go.
+Stop Airflow any time with `make astro-stop`. 
 
 ## 🧰 Helpful Make Targets
 Run `make help` to list all commands. Highlights:
@@ -75,11 +75,6 @@ Run `make help` to list all commands. Highlights:
 - `make download-data` – pulls the latest voter CSV (https://gist.github.com/hhkarimi/...).
 - `make copy-data` – mirrors `data/` + `dbt_voter_project/` into `airflow/include/` so the Astro containers can read them.
 - `make dashboard` – launches Streamlit via `dashboard/run.sh` (auto handles deps/locks).
-- `make dashboard-build` – installs `dashboard/requirements.txt` into the active env.
-- `make dashboard-dev` – runs Streamlit with auto-reload for rapid iteration.
-- `make demo` – orchestrates startup, data download, and DAG trigger for interview demos.
-- `make clean` – removes generated data, DuckDB files, and Astro logs.
-
 ---
 
 ## 🗳️ Airflow DAG: Voter Ingestion
@@ -134,6 +129,8 @@ duckdb airflow/include/data/processed/goodparty.duckdb "
 
 You should see the total number of raw voters and the latest audit record (`success` for new hashes, `no-op` when the DAG short-circuits). Append a new row to the CSV and re-trigger the DAG to watch the delta insert show up in both queries.
 
+> If the Streamlit dashboard is running (`make dashboard`), DuckDB may be locked for writes. Stop the dashboard with `Ctrl+C` before connecting, or use `duckdb -readonly airflow/include/data/processed/goodparty.duckdb` to inspect tables without taking down the UI.
+
 ---
 
 ## 🧱 dbt Transformation Layers
@@ -166,16 +163,7 @@ DBT_PROFILES_DIR=. dbt test
 ```
 `profiles.yml` targets `../airflow/include/data/processed/goodparty.duckdb`, so your local CLI shares the same warehouse that Airflow/dbt use inside the containers. The current sample data surfaces two WARN-level tests (missing state codes and registration activity older than 30 days); they’re documented data-quality issues and safe to ignore for demo runs.
 
-### Running dbt inside the Astro containers (optional)
-Astro mounts `airflow/include` at `/usr/local/airflow/include`, so the scheduler already uses `/usr/local/airflow/include/dbt_voter_project`. Run the same commands inside the scheduler container if you need to debug in-place:
-```bash
-astro dev run scheduler bash -lc "
-  cd /usr/local/airflow/include/dbt_voter_project &&
-  dbt deps &&
-  dbt run &&
-  dbt test
-"
-```
+> Tip: close the DuckDB CLI (`.exit`) and stop the Streamlit dashboard before running dbt, or use read-only connections elsewhere. DuckDB enforces a single writer lock, so lingering sessions can block `dbt run`/`dbt test`.
 
 ### Spot-checking mart outputs
 ```bash
@@ -191,6 +179,9 @@ duckdb airflow/include/data/processed/goodparty.duckdb "
   from main_marts.registration_trends
   order by registration_month desc
   limit 6;
+  
+  select party, total_voters, age_18_29, active_voters_2024
+    from main_marts.voter_party_distribution;
 "
 ```
 Combine these checks with `dbt test` to confirm data-quality logic before demoing or iterating on downstream layers.
@@ -207,14 +198,6 @@ source .venv/bin/activate               # reuse the virtualenv from make setup
 make dashboard                          # opens http://localhost:8501
 ```
 
-Want to run the script manually? `./dashboard/run.sh` exposes the same functionality. Its behavior:
-- Prefers the repo’s `data/processed/goodparty.duckdb`. Override by exporting `DUCKDB_PATH=/path/to/warehouse.duckdb` before running.
-- Automatically installs `dashboard/requirements.txt` into the active environment if packages are missing.
-- Falls back to a temporary snapshot when the primary DuckDB file is locked, so you can keep a CLI session open without killing Streamlit.
-- Exposes an optional `DBT_MART_SCHEMA` env var (defaults to `main_marts`) if you want to point at a different mart schema.
-
-Prefer a manual launch? `streamlit run dashboard/app.py` works too—just be sure `DUCKDB_PATH` points at the warehouse.
-
 ### What reviewers should look for
 - **Overview tab** – Total voter counts, party split, and engagement cohorts from `main_marts.voter_engagement_metrics`.
 - **Geographic tab** – Top states + party distribution charts powered by `main_marts.voter_state_summary`.
@@ -228,77 +211,22 @@ Run these against the DuckDB file (e.g., `duckdb airflow/include/data/processed/
 ```sql
 -- Rows with missing critical fields
 select voter_id, first_name, last_name, state_code, age, email, load_timestamp
-from main_intermediate.int_voters_cleaned
+from main_intermediate.voters_cleaned
 where has_missing_data
 order by voter_id;
 
 -- Invalid ages (outside {{ var('min_voter_age') }}-{{ var('max_voter_age') }})
 select voter_id, age, first_name, last_name, state_code, has_invalid_age
-from main_intermediate.int_voters_cleaned
+from main_intermediate.voters_cleaned
 where has_invalid_age
 order by voter_id;
 
 -- Invalid emails caught by validate_email()
 select voter_id, email, first_name, last_name, state_code
-from main_intermediate.int_voters_cleaned
+from main_intermediate.voters_cleaned
 where not is_valid_email
 order by voter_id;
 ```
-
-Use the same connection to spot-check mart outputs that feed each Streamlit page, ensuring reviewers can tie every visualization back to its SQL source.
-
----
-
-## 🎬 Demo Run Playbook
-
-Use this checklist to rehearse (or let reviewers reproduce) the full workflow on a clean machine:
-
-1. **Clone + bootstrap**
-   ```bash
-   git clone <repo> voter-pipeline && cd voter-pipeline
-   make setup                              # installs Astro, .venv, downloads CSV, seeds DuckDB
-   ```
-2. **Run dbt locally (sanity check)**
-   ```bash
-   cd dbt_voter_project
-   DBT_PROFILES_DIR=. dbt deps && \
-   DBT_PROFILES_DIR=. dbt run && \
-   DBT_PROFILES_DIR=. dbt test
-   cd ..
-   ```
-   Expect two WARN-level tests (missing state codes, stale registrations); both reflect known data quality gaps.
-3. **Sync files, start Airflow, and trigger the DAG**
-   ```bash
-   make astro-stop          # safe even if not running
-   make copy-data           # stage data/dbt into airflow/include/ before starting
-   make astro-start         # wait for http://localhost:8080 to go healthy
-   # trigger voter_ingestion_dag via the Airflow UI (admin/admin)
-   ```
-   The DAG hashes/loads the CSV, runs dbt inside the scheduler container, and logs the audit row.
-4. **Spot-check DuckDB outputs**
-   ```bash
-   duckdb airflow/include/data/processed/goodparty.duckdb "
-     
-     select count(*) as raw_rows from raw.voters;
-     
-     select * from metadata.voter_ingestion_audit order by ingested_at desc limit 3;
-     
-     select state_code, total_voters, democrat_pct, republican_pct
-       from main_marts.voter_state_summary
-       order by total_voters desc;
-     
-     select party, total_voters, age_18_29, active_voters_2024
-       from main_marts.voter_party_distribution;
-     
-     select registration_month, new_registrations, moving_avg_registrations
-       from main_marts.registration_trends
-       order by registration_month desc limit 6;
-   "
-   ```
-   These queries confirm ingestion counts, metadata logging, and that dbt populated each mart schema.
-
-Restart Astro (`make astro-stop && make astro-start`) whenever you change DAG code or requirements. Run `duckdb ... delete from raw.voters; delete from metadata.voter_ingestion_audit;` between demos if you want to showcase a fresh ingestion.
-
 ---
 
 ## 📓 Notes for Reviewers

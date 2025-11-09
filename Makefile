@@ -13,7 +13,7 @@ DAG_ID ?= voter_ingestion_dag
 STREAMLIT_APP := dashboard/app.py
 DATA_URL ?= https://gist.githubusercontent.com/hhkarimi/03b7d159478b319679e308e252f58d44/raw
 
-.PHONY: help check-prereqs install-astro setup astro-init astro-start astro-stop download-data copy-data dashboard dashboard-build dashboard-dev demo clean
+.PHONY: help check-prereqs install-astro setup astro-init astro-start astro-stop download-data copy-data dashboard
 
 help:              # Show all commands
 	@echo "Available commands:"
@@ -67,21 +67,3 @@ copy-data:         # Mirror data + dbt project into Astro include for containers
 dashboard:         # Run Streamlit dashboard via helper script
 	@echo "Starting Voter Analytics Dashboard..."
 	@./dashboard/run.sh
-
-dashboard-build:   # Install dashboard dependencies into current environment
-	@python -m pip install -r dashboard/requirements.txt
-
-dashboard-dev:     # Run dashboard with Streamlit's dev mode (auto-reload)
-	@cd dashboard && streamlit run app.py --server.runOnSave=true
-
-demo:              # Full demo flow with manual DAG trigger
-	@$(MAKE) check-prereqs
-	@$(MAKE) download-data
-	@$(MAKE) astro-start
-	@$(MAKE) copy-data
-	@echo "Airflow is running at http://localhost:8080 (admin/admin). Trigger '$(DAG_ID)' from the UI."
-	@echo "Once the DAG finishes, run 'make dashboard' in a new terminal to launch the UI."
-
-clean:             # Clean everything
-	@rm -rf $(RAW_DATA_FILE) $(PROCESSED_DATA_DIR)/*.duckdb $(ASTRO_PROJECT_DIR)/logs $(ASTRO_PROJECT_DIR)/dags/__pycache__
-	@echo "Workspace cleaned."
