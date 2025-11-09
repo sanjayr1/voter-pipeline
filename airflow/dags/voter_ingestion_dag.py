@@ -293,6 +293,11 @@ with DAG(
             + "', '"
             + DEFAULT_DBT_PROJECT_PATH
             + "') }}",
+            "DBT_DUCKDB_PATH": "{{ var.value.get('"
+            + DUCKDB_PATH_VAR
+            + "', '"
+            + DEFAULT_DUCKDB_PATH
+            + "') }}",
         },
     )
 
