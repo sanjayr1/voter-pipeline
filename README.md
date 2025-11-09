@@ -100,6 +100,7 @@ Every Astro container mounts the repo root at `/usr/local/airflow`, so keeping a
 3. Trigger the DAG from the UI (`voter_ingestion_dag`) or via `make run-pipeline`.
 
 Because the DAG tracks `source_file_hash`, rerunning a day with the same CSV results in a clean no-op branch; new hashes load only the delta rows and remain idempotent even if tasks retry mid-way.
+The DAG allows two concurrent runs (`max_active_runs=2`), so you can trigger it manually while the next scheduled run waits in the queue.
 
 ### Validate ingestion results
 

@@ -245,7 +245,7 @@ with DAG(
     schedule="@daily",
     start_date=pendulum.datetime(2024, 1, 1, tz="UTC"),
     catchup=False,
-    max_active_runs=1,
+    max_active_runs=2,
     default_args={"owner": "goodparty-data", "retries": 1},
     tags=["goodparty", "duckdb", "dbt"],
     doc_md=__doc__,
