@@ -3,7 +3,7 @@ voter_analytics:
   outputs:
     dev:
       type: duckdb
-      path: ../airflow/include/data/processed/goodparty.duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../airflow/include/data/processed/goodparty.duckdb') }}"
       schema: main
       threads: 4
       extensions: []

@@ -49,14 +49,17 @@ make copy-data
 # 5. Launch Airflow locally (builds the Astro image with requirements)
 make astro-start  # Airflow UI: http://localhost:8080  (admin / admin)
 
-# 6. The DAG should auto run as it is scheduled, but if it doesn't due to the time, feel free to 
-#    manually trigger the DAG from the Airflow UI (http://localhost:8080, admin / admin).
+# 6. You will need to unpause the voter_ingestion_dag in the UI. 
+#    At this point, the DAG should auto run as it is scheduled, 
+#    but if it doesn't due to the time, feel free to manually 
+#    trigger the DAG from the Airflow UI.
 #
 #    Click the play button next to voter_ingestion_dag. Re-run `make copy-data`
 #    any time you modify `data/` or the dbt project.
 #
-#    Side note: if you rerun the DAG, you will hit the 2nd branch path (no_new_data), so feel free to 
-#               play with that as well to see the idempotent behavior. 
+#    Side note: if you rerun the DAG, you will hit the 2nd branch 
+#               path (no_new_data), so feel free to play with that
+#               as well to see the idempotent behavior. 
 
 # 7. Explore the Streamlit dashboard in another terminal
 source .venv/bin/activate
