@@ -57,7 +57,7 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # DuckDB helpers
 # ---------------------------------------------------------------------------
-DEFAULT_DB_PATH = "/usr/local/airflow/data/processed/goodparty.duckdb"
+DEFAULT_DB_PATH = "/usr/local/airflow/include/data/processed/goodparty.duckdb"
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", DEFAULT_DB_PATH)
 DBT_MART_SCHEMA = os.getenv("DBT_MART_SCHEMA", "main_marts")
 GENERATION_ORDER = ["gen_z", "millennial", "gen_x", "boomer", "silent"]

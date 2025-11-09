@@ -3,7 +3,7 @@ voter_analytics:
   outputs:
     dev:
       type: duckdb
-      path: ../data/processed/goodparty.duckdb
+      path: ../airflow/include/data/processed/goodparty.duckdb
       schema: main
       threads: 4
       extensions: []
