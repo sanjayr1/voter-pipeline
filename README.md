@@ -40,14 +40,20 @@ make install-astro
 
 # 3. One-time setup: checks Docker/Astro, creates .venv, downloads CSV, inits dbt
 make setup        # wraps scripts/setup.sh
+# Then activate the virtual environment - 
+source .venv/bin/activate
 
 # 4. Launch Airflow locally (builds the Astro image with requirements)
 make astro-start  # Airflow UI: http://localhost:8080  (admin / admin)
 
-# 5. Trigger the DAG (defaults to voter_ingestion_dag; override with DAG_ID=your_dag if needed)
-make run-pipeline
+# 5. Stage shared assets so Airflow can read them
+make copy-data
 
-# 6. Explore the Streamlit dashboard in another terminal
+# 6. Trigger the DAG from the Airflow UI (http://localhost:8080, admin / admin)
+#    Click the play button next to voter_ingestion_dag. Re-run `make copy-data`
+#    any time you modify `data/` or the dbt project.
+
+# 7. Explore the Streamlit dashboard in another terminal
 source .venv/bin/activate
 make dashboard        # wraps ./dashboard/run.sh (http://localhost:8501)
 ```
@@ -59,7 +65,7 @@ Run `make help` to list all commands. Highlights:
 
 - `make check-prereqs` – verifies Docker + Astro availability.
 - `make download-data` – pulls the latest voter CSV (https://gist.github.com/hhkarimi/...).
-- `make run-pipeline` – runs the configured DAG via `astro dev run`.
+- `make copy-data` – mirrors `data/` + `dbt_voter_project/` into `airflow/include/` so the Astro containers can read them.
 - `make dashboard` – launches Streamlit via `dashboard/run.sh` (auto handles deps/locks).
 - `make dashboard-build` – installs `dashboard/requirements.txt` into the active env.
 - `make dashboard-dev` – runs Streamlit with auto-reload for rapid iteration.
@@ -82,25 +88,25 @@ Variables for CSV, DuckDB, and dbt paths are pre-seeded via `airflow/airflow_set
 
 | Variable | Purpose | Suggested value |
 |----------|---------|-----------------|
-| `voter_csv_path` | Location of the append-only CSV inside the Astro containers | `/usr/local/airflow/data/raw/goodparty_voters.csv` |
-| `voter_duckdb_path` | DuckDB file that Airflow + dbt share | `/usr/local/airflow/data/processed/goodparty.duckdb` |
-| `voter_dbt_project_path` | Path to the dbt repo | `/usr/local/airflow/dbt_voter_project` |
+| `voter_csv_path` | Location of the append-only CSV inside the Astro containers | `/usr/local/airflow/include/data/raw/goodparty_voters.csv` |
+| `voter_duckdb_path` | DuckDB file that Airflow + dbt share | `/usr/local/airflow/include/data/processed/goodparty.duckdb` |
+| `voter_dbt_project_path` | Path to the dbt repo | `/usr/local/airflow/include/dbt_voter_project` |
 | `voter_dbt_profiles_dir` | Profiles directory for dbt | Same as project path (unless you split profiles) |
 
-Every Astro container mounts the repo root at `/usr/local/airflow`, so keeping assets under `data/` means the scheduler, local CLI, and dashboard automatically see the same files—no manual copy or rsync step required.
+Use `make copy-data` to mirror `data/` + the dbt project into `airflow/include`, which is mounted into the Astro containers at `/usr/local/airflow/include`. Run it any time you plan to trigger the DAG (and rerun after editing `data/` or `dbt_voter_project/`).
 
 ### DuckDB connection
 
-`airflow/airflow_settings.yaml` also seeds a connection named `duckdb_default` (Conn Type: DuckDB, Host: `/usr/local/airflow/data/processed/goodparty.duckdb`). The DAG reads this connection first (and only falls back to the Variable if it’s missing), which keeps Airflow, dbt, and ad-hoc queries perfectly aligned on the same DuckDB file.
+`airflow/airflow_settings.yaml` also seeds a connection named `duckdb_default` (Conn Type: DuckDB, Host: `/usr/local/airflow/include/data/processed/goodparty.duckdb`). The DAG reads this connection first (and only falls back to the Variable if it’s missing), which keeps Airflow, dbt, and ad-hoc queries perfectly aligned on the same DuckDB file.
 
 ### Running the pipeline
 
 1. `make astro-start`
 2. Ensure the Airflow Variables above are set (or use the defaults shown).
-3. Trigger the DAG from the UI (`voter_ingestion_dag`) or via `make run-pipeline`.
+3. Run `make copy-data` to stage the CSV, DuckDB file, and dbt project into the Astro mounts.
+4. Trigger the DAG from the Airflow UI (`voter_ingestion_dag` → Play → Trigger). Re-run `make copy-data` before each trigger if you edit the data/dbt assets.
 
-Because the DAG tracks `source_file_hash`, rerunning a day with the same CSV results in a clean no-op branch; new hashes load only the delta rows and remain idempotent even if tasks retry mid-way.
-The DAG allows two concurrent runs (`max_active_runs=2`), so you can trigger it manually while the next scheduled run waits in the queue.
+Because the DAG tracks `source_file_hash`, rerunning a day with the same CSV results in a clean no-op branch; new hashes load only the delta rows and remain idempotent even if tasks retry mid-way. Airflow limits the DAG to one active run at a time, so wait for the prior run to finish (or pause the DAG) before triggering again.
 
 ### Validate ingestion results
 
@@ -153,10 +159,10 @@ DBT_PROFILES_DIR=. dbt test
 `profiles.yml` targets `../data/processed/goodparty.duckdb`, so your local CLI shares the same warehouse as the Streamlit dashboard. The current sample data surfaces two WARN-level tests (missing state codes and registration activity older than 30 days); they’re documented data-quality issues and safe to ignore for demo runs.
 
 ### Running dbt inside the Astro containers (optional)
-Astro mounts the repo at `/usr/local/airflow`, so the scheduler already uses `/usr/local/airflow/dbt_voter_project`. Run the same commands inside the scheduler container if you need to debug in-place:
+Astro mounts `airflow/include` at `/usr/local/airflow/include`, so the scheduler already uses `/usr/local/airflow/include/dbt_voter_project`. Run the same commands inside the scheduler container if you need to debug in-place:
 ```bash
 astro dev run scheduler bash -lc "
-  cd /usr/local/airflow/dbt_voter_project &&
+  cd /usr/local/airflow/include/dbt_voter_project &&
   dbt deps &&
   dbt run &&
   dbt test
@@ -253,11 +259,12 @@ Use this checklist to rehearse (or let reviewers reproduce) the full workflow on
    cd ..
    ```
    Expect two WARN-level tests (missing state codes, stale registrations); both reflect known data quality gaps.
-3. **Start Airflow + trigger the DAG**
+3. **Start Airflow, sync files, and trigger the DAG**
    ```bash
    make astro-stop          # safe even if not running
    make astro-start         # wait for http://localhost:8080 to go healthy
-   make run-pipeline        # equivalent to clicking “Run” on voter_ingestion_dag
+   make copy-data           # stage data/dbt into airflow/include/
+   # trigger voter_ingestion_dag via the Airflow UI (admin/admin)
    ```
    The DAG hashes/loads the CSV, runs dbt inside the scheduler container, and logs the audit row.
 4. **Spot-check DuckDB outputs**
@@ -289,7 +296,7 @@ Restart Astro (`make astro-stop && make astro-start`) whenever you change DAG co
 ## 📓 Notes for Reviewers
 - Set `DATA_URL` when invoking `make download-data` if you want to test with an alternate dataset.
 - `scripts/setup.sh` creates `.venv/` at the repo root; activate it for any local CLI work (`source .venv/bin/activate`).
-- dbt is configured to write to `data/processed/goodparty.duckdb` when you run it locally (outside Astro). Astro mounts the repo at `/usr/local/airflow`, so the scheduler reads the exact same file from `/usr/local/airflow/data/processed/goodparty.duckdb`—no manual sync steps required.
+- dbt is configured to write to `data/processed/goodparty.duckdb` when you run it locally (outside Astro). Run `make copy-data` whenever you need the Airflow containers to pick up the latest DuckDB/dbt changes; it mirrors everything into `/usr/local/airflow/include/...` inside the stack.
 - Airflow DAGs live in `airflow/dags/` inside the Astro project. Use `astro dev restart` after adding DAGs to rebuild the container if requirements change.
 
 Enjoy exploring the voter pipeline!
