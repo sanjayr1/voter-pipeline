@@ -24,10 +24,8 @@ install-astro:     # Help install Astro CLI
 	@echo "  brew install astro"
 	@echo "Manual install: https://www.astronomer.io/docs/astro/cli/install"
 
-setup:             # Setup everything
-	@$(MAKE) check-prereqs
-	@$(MAKE) astro-init
-	@$(MAKE) download-data
+setup:             # Run full bootstrap script (creates .venv, installs deps, downloads data)
+	@bash scripts/setup.sh
 
 astro-init:        # Initialize Astro project
 	@command -v astro >/dev/null 2>&1 || { echo "Astro CLI not installed. Run \"make install-astro\"."; exit 1; }

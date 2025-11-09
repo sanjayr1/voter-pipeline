@@ -48,9 +48,9 @@ DUCKDB_PATH_VAR = "voter_duckdb_path"
 DBT_PROJECT_VAR = "voter_dbt_project_path"
 DBT_PROFILES_VAR = "voter_dbt_profiles_dir"
 
-DEFAULT_CSV_PATH = "/usr/local/airflow/include/data/raw/goodparty_voters.csv"
-DEFAULT_DUCKDB_PATH = "/usr/local/airflow/include/data/processed/goodparty.duckdb"
-DEFAULT_DBT_PROJECT_PATH = "/usr/local/airflow/include/dbt_voter_project"
+DEFAULT_CSV_PATH = "/usr/local/airflow/data/raw/goodparty_voters.csv"
+DEFAULT_DUCKDB_PATH = "/usr/local/airflow/data/processed/goodparty.duckdb"
+DEFAULT_DBT_PROJECT_PATH = "/usr/local/airflow/dbt_voter_project"
 
 RAW_TABLE = "raw.voters"
 METADATA_TABLE = "metadata.voter_ingestion_audit"

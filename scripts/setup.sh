@@ -99,6 +99,11 @@ ensure_dbt_cli() {
   "$VENV_PIP" install "dbt-core>=1.6" "dbt-duckdb>=1.6" || die "Failed to install dbt packages."
 }
 
+ensure_data_directories() {
+  mkdir -p "$RAW_DATA_DIR" "$PROCESSED_DIR"
+  log "Data directories ready under $ROOT_DIR/data/."
+}
+
 download_voter_data() {
   ensure_command curl "Install curl to download files (macOS: brew install curl)."
   mkdir -p "$RAW_DATA_DIR"
@@ -183,6 +188,7 @@ main() {
   ensure_python_and_pip
   ensure_virtualenv
   ensure_dbt_cli
+  ensure_data_directories
   download_voter_data
   init_astro_project
   setup_dbt_project

@@ -10,8 +10,8 @@ cd "${SCRIPT_DIR}"
 echo "🚀 Starting GoodParty Voter Analytics Dashboard"
 
 # Prefer local warehouse mirror; fall back to container path if needed.
-LOCAL_DB_PATH="${PROJECT_ROOT}/airflow/include/data/processed/goodparty.duckdb"
-CONTAINER_DB_PATH="/usr/local/airflow/include/data/processed/goodparty.duckdb"
+LOCAL_DB_PATH="${PROJECT_ROOT}/data/processed/goodparty.duckdb"
+CONTAINER_DB_PATH="/usr/local/airflow/data/processed/goodparty.duckdb"
 
 if [[ -z "${DUCKDB_PATH:-}" ]]; then
     if [[ -f "${LOCAL_DB_PATH}" ]]; then
